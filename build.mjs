@@ -39,7 +39,7 @@ const sections = JSON.parse(readFileSync("sections.json", "utf8")).map((s) => ({
   html: readFileSync(s.file, "utf8"),
 }));
 
-const ITER = 600000;
+const ITER = 250000;
 const salt = crypto.getRandomValues(new Uint8Array(16));
 const iv = crypto.getRandomValues(new Uint8Array(12));
 const key = await derive(salt, ITER, "encrypt");

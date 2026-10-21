@@ -4,7 +4,7 @@ A small personal site. Everything except the lock screen is encrypted with a pas
 
 ## How it works
 
-`index.html` is the lock screen. `vault.json` holds every private section, encrypted with AES-256-GCM using a key derived from the password (PBKDF2, SHA-256, 600,000 rounds). The browser decrypts it only after the right password is typed. The password is never stored in this repo.
+`index.html` is the lock screen. `vault.json` holds every private section, encrypted with AES-256-GCM using a key derived from the password (PBKDF2, SHA-256, 250,000 rounds). The browser decrypts it only after the right password is typed. The password is never stored in this repo.
 
 Ticks and other progress inside a section are saved in the visitor's own browser.
 
