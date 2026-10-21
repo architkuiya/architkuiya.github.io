@@ -1,0 +1,4 @@
+# Private source files: never commit these. They live encrypted inside vault.json.
+sections/
+sections.json
+node_modules/

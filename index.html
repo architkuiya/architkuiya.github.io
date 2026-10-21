@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Sanchitalaya</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Sanskrit&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a locked door. Before unlock one centred card; after unlock a thin bar of rooms over a full-height frame. */
+:root{
+  --bg:#eef0f4; --card:#ffffff; --ink:#1b1f2a; --muted:#5d6475; --line:#d5d9e2;
+  --brass:#9a6b1f; --brass-soft:#f4ead8; --err:#b3362b;
+  --deva:"Tiro Devanagari Sanskrit", "Noto Serif Devanagari", Georgia, serif;
+  --body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#12141b; --card:#1b1e28; --ink:#e7e9ef; --muted:#9aa1b2; --line:#2c3040;
+  --brass:#d9a752; --brass-soft:#2b2518; --err:#f08a7e; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+/* lock */
+#lock{min-height:100%;display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-left,0px))}
+.door{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:32px 28px;display:flex;flex-direction:column;gap:18px;text-align:center}
+.mark{font-family:var(--deva);font-size:2.4rem;line-height:1.2;color:var(--brass)}
+.name{font-weight:600;letter-spacing:.18em;text-transform:uppercase;font-size:.78rem;color:var(--muted);margin-top:-10px}
+form{display:flex;flex-direction:column;gap:10px;text-align:left}
+input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.row{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+button{font:600 .9rem var(--body);border-radius:8px;cursor:pointer;padding:10px 14px;border:1px solid var(--brass);background:var(--brass);color:var(--card)}
+button.ghost{background:none;color:var(--ink);border-color:var(--line);padding:6px 10px;font-weight:500}
+.msg{min-height:1.3em;font-size:.85rem;color:var(--err);margin:0}
+
+/* inside */
+#inside{height:100%;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:12px;padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));padding-top:max(8px,env(safe-area-inset-top,0px));background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.bar .mark{font-size:1.35rem}
+nav{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+nav a{color:var(--ink);text-decoration:none;padding:5px 10px;border-radius:999px;font-size:.88rem;border:1px solid transparent}
+nav a[aria-current="page"]{background:var(--brass-soft);border-color:var(--brass);color:var(--brass)}
+iframe{flex:1;width:100%;border:0;background:var(--bg)}
+</style>
+</head>
+<body>
+<main id="lock">
+  <div class="door">
+    <div class="mark" aria-hidden="true">सञ्चितालय</div>
+    <div class="name">Sanchitalaya</div>
+    <form id="f">
+      <label for="pw" class="row" style="color:var(--ink)">Password</label>
+      <input type="password" id="pw" autocomplete="current-password" required>
+      <label class="row"><input type="checkbox" id="remember"> Keep me unlocked on this device</label>
+      <button type="submit" id="go">Open</button>
+      <p class="msg" id="msg" role="status"></p>
+    </form>
+  </div>
+</main>
+
+<div id="inside" hidden>
+  <header class="bar">
+    <span class="mark" aria-hidden="true">सञ्चितालय</span>
+    <nav id="nav"></nav>
+    <button class="ghost" id="lockBtn">Lock</button>
+  </header>
+  <iframe id="frame" title="Section"></iframe>
+</div>
+
+<script>
+const REM = "sanchitalaya-key";
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const b64e = u => btoa(String.fromCharCode(...u));
+let vault = null, sections = [];
+
+async function getVault(){
+  if(vault) return vault;
+  const r = await fetch("vault.json", {cache:"no-store"});
+  if(!r.ok) throw new Error("vault");
+  return vault = await r.json();
+}
+async function keyFromPassword(pw, v){
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt:b64d(v.salt), iterations:v.iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, true, ["decrypt"]);
+}
+async function openWith(key, v){
+  const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64d(v.iv)}, key, b64d(v.data));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function show(payload){
+  sections = payload.sections;
+  const nav = document.getElementById("nav");
+  nav.innerHTML = "";
+  for(const s of sections){
+    const a = document.createElement("a");
+    a.href = "#" + s.id; a.textContent = s.title; a.title = s.note || "";
+    nav.appendChild(a);
+  }
+  document.getElementById("lock").hidden = true;
+  document.getElementById("inside").hidden = false;
+  route();
+}
+function route(){
+  if(!sections.length) return;
+  const id = location.hash.slice(1);
+  const s = sections.find(x => x.id === id) || sections[0];
+  document.querySelectorAll("#nav a").forEach(a => a.setAttribute("aria-current", a.hash === "#"+s.id ? "page" : "false"));
+  document.title = s.title + " · Sanchitalaya";
+  document.getElementById("frame").srcdoc = s.html;
+}
+window.addEventListener("hashchange", route);
+
+document.getElementById("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = document.getElementById("msg"), go = document.getElementById("go");
+  msg.textContent = ""; go.disabled = true; go.textContent = "Opening…";
+  try{
+    const v = await getVault();
+    const key = await keyFromPassword(document.getElementById("pw").value, v);
+    const payload = await openWith(key, v);
+    if(document.getElementById("remember").checked){
+      try{ localStorage.setItem(REM, JSON.stringify({salt:v.salt, k:b64e(new Uint8Array(await crypto.subtle.exportKey("raw", key)))})); }catch(_){}
+    }
+    document.getElementById("pw").value = "";
+    show(payload);
+  }catch(err){
+    msg.textContent = err.message === "vault" ? "Could not load the site. Check your connection and try again." : "That password did not open it. Try again.";
+  }
+  go.disabled = false; go.textContent = "Open";
+});
+
+document.getElementById("lockBtn").addEventListener("click", () => {
+  try{ localStorage.removeItem(REM); }catch(_){}
+  document.getElementById("frame").srcdoc = "";
+  sections = [];
+  document.getElementById("inside").hidden = true;
+  document.getElementById("lock").hidden = false;
+  document.title = "Sanchitalaya";
+});
+
+// Remembered device: the saved key only works while the password (salt) is unchanged.
+(async () => {
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(REM) || "null"); }catch(_){}
+  if(!saved) return;
+  try{
+    const v = await getVault();
+    if(saved.salt !== v.salt) throw 0;
+    const key = await crypto.subtle.importKey("raw", b64d(saved.k), "AES-GCM", false, ["decrypt"]);
+    show(await openWith(key, v));
+  }catch(_){ try{ localStorage.removeItem(REM); }catch(__){} }
+})();
+</script>
+</body>
+</html>
